@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/status-in%20progress-yellow)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![AWS](https://img.shields.io/badge/AWS-EKS-orange?logo=amazonaws)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-1.29-326CE5?logo=kubernetes&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-EKS-326CE5?logo=kubernetes&logoColor=white)
 ![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white)
 ![GitLab CI](https://img.shields.io/badge/CI%2FCD-GitLab-FC6D26?logo=gitlab&logoColor=white)
 ![Istio](https://img.shields.io/badge/Service%20Mesh-Istio-466BB0?logo=istio&logoColor=white)
@@ -48,7 +48,7 @@ A payment API surrounded by a secure platform that is built end-to-end:
 
 This portfolio shows **a stack that provably works** against real attacker behaviour.
 
-The Scenario is to build a full secure platform around a new payment API. Constraints match a real fintech environment — **PCI DSS applies**, blast radius must be minimised, secrets must never touch a repo, every deployment must pass through automated security gates, and runtime behaviour must be observable.
+The scenario: build a full secure platform around a new payment API. Constraints match a real fintech environment — **PCI DSS applies**, blast radius must be minimised, secrets must never touch a repo, every deployment must pass through automated security gates, and runtime behaviour must be observable.
 
 ---
 
@@ -61,13 +61,14 @@ flowchart TB
     end
 
     subgraph CI["GitLab CI/CD — Security Gates"]
-        GL --> SAST[SAST<br/>Semgrep]
+        GL --> SECRET[Secret Scan<br/>Gitleaks · TruffleHog]
+        SECRET --> SAST[SAST<br/>Semgrep]
         SAST --> SCA[SCA<br/>Trivy · Grype]
-        SCA --> SECRET[Secret Scan<br/>Gitleaks · TruffleHog]
-        SECRET --> IAC[IaC Scan<br/>Checkov · tfsec · Kubesec]
-        IAC --> BUILD[Build & Sign<br/>Docker · Cosign]
+        SCA --> IAC[IaC Scan<br/>Checkov · tfsec · Kubesec]
+        IAC --> BUILD[Build<br/>Docker]
         BUILD --> IMG[Image Scan<br/>Trivy]
-        IMG --> DAST[DAST<br/>OWASP ZAP]
+        IMG --> SIGN[Sign<br/>Cosign]
+        SIGN --> DAST[DAST<br/>OWASP ZAP]
         DAST --> DEPLOY[Deploy to EKS]
     end
 
@@ -113,7 +114,7 @@ flowchart TB
 
     classDef security fill:#fee,stroke:#c33,stroke-width:2px
     classDef aws fill:#fff4e0,stroke:#f90,stroke-width:1px
-    class SAST,SCA,SECRET,IAC,IMG,DAST,KYV,FALCO,WAF,VAULT security
+    class SAST,SCA,SECRET,IAC,IMG,SIGN,DAST,KYV,FALCO,WAF,VAULT security
     class RDS,KMS,GD,CT,SH aws
 ```
 
@@ -130,12 +131,16 @@ A minimal FastAPI-based payment service — a realistic target for the security 
 - `POST /auth/login` — JWT
 - `GET /health`, `GET /metrics` — for K8s probes and Prometheus
 
+**No real cardholder data:** `card_token` is a UUID reference to a stored card.
+
 **Two branches, one purpose:**
 
 | Branch              | Purpose                                                                                             |
 | ------------------- | --------------------------------------------------------------------------------------------------- |
 | `main`              | Hardened reference implementation. Passes every pipeline gate.                                      |
 | `vulnerable-demo`   | Same API with deliberately planted vulnerabilities. To catch them all.                              |
+
+Locally the DB is a container; in AWS it's KMS-encrypted RDS.
 
 ---
 
@@ -146,9 +151,9 @@ A minimal FastAPI-based payment service — a realistic target for the security 
 | **Source code**          | Semgrep SAST, Gitleaks & TruffleHog secret detection, pre-commit hooks                            |
 | **Dependencies**         | Trivy & Grype SCA, dependency pinning                                                             |
 | **Infrastructure code**  | Checkov, tfsec, Kubesec                                                                           |
-| **Container image**      | Non-root user, distroless base, Trivy image scan, Cosign signing, admission verification          |
-| **Kubernetes cluster**   | RBAC (`dev` / `ops` / `security` / `audit`), Pod Security Admission `restricted`, Kyverno policies |
-| **Network**              | Calico Network Policies (default-deny), Istio `mTLS STRICT`, `AuthorizationPolicy` per workload   |
+| **Container image**      | Non-root user, minimal base (distroless/slim), Trivy image scan, Cosign signing, admission verification          |
+| **Kubernetes cluster**   | RBAC (`dev` / `ops` / `security` / `audit`), Pod Security Admission `restricted`, Kyverno policies, OPA/Gatekeeper evaluated |
+| **Network**              | Network Policies default-deny (Calico/Cilium), Istio `mTLS STRICT`, `AuthorizationPolicy` per workload   |
 | **Secrets**              | Vault + External Secrets Operator + IRSA                                                          |
 | **Runtime**              | Falco rules for common attacker TTPs, alerts to Telegram via Alertmanager                         |
 | **Cloud plane**          | CloudTrail, GuardDuty, Config, Security Hub, KMS-encrypted state and volumes                      |
@@ -160,17 +165,21 @@ A minimal FastAPI-based payment service — a realistic target for the security 
 
 Each scenario has a recorded screencast in [`docs/demos/`](./docs/demos/).
 
-| # | Scenario                                              | Attacker action                             | Control that blocks                       | Layer          |
-| - | ----------------------------------------------------- | ------------------------------------------- | ----------------------------------------- | -------------- |
-| 1 | Committing a hardcoded AWS key                        | `git push` with credentials in code         | Gitleaks in pre-commit + CI               | Source         |
-| 2 | Introducing a SQL injection                           | Raw string concatenation in a query         | Semgrep SAST rule                         | Source         |
-| 3 | Using a dependency with a known critical CVE          | Pinning a vulnerable package version        | Trivy SCA gate                            | Dependencies   |
-| 4 | Pushing an image running as root                      | `USER root` in Dockerfile                   | Trivy config scan + Kyverno at admission  | Image / Cluster |
-| 5 | Deploying a privileged pod                            | `privileged: true` in manifest              | Kyverno policy + Pod Security Admission   | Cluster        |
-| 6 | Lateral movement from a compromised pod               | `curl` to another namespace                 | Calico Network Policy (default-deny)      | Network        |
-| 7 | Runtime shell spawn inside a container                | `kubectl exec` + `sh` in payment pod        | Falco rule → Telegram alert               | Runtime        |
-| 8 | Bypassing JWT with `alg: none`                        | Forged token in `vulnerable-demo`           | Hardened JWT validation in `main`         | Application    |
-| 9 | Unauthenticated access to admin endpoint              | Direct HTTP request                         | Istio `AuthorizationPolicy`               | Mesh           |
+| #  | Scenario                                  | Attacker action                        | Control that blocks                      | Layer         |
+| -- | ----------------------------------------- | -------------------------------------- | ---------------------------------------- | ------------- |
+| 1  | Committing a hardcoded AWS key            | `git push` with credentials in code    | Gitleaks (pre-commit + CI)               | Source        |
+| 2  | SQL injection                             | Raw string concatenation in a query    | Semgrep SAST                             | Source        |
+| 3  | JWT bypass with `alg: none`               | Forged token, weak validation on branch| Semgrep SAST gate                        | Source        |
+| 4  | Dependency with a known critical CVE      | Pinning a vulnerable package           | Trivy / Grype SCA                        | Dependencies  |
+| 5  | Terraform with open SG / `iam:*`          | Permissive rule in IaC                 | Checkov / tfsec                          | IaC           |
+| 6  | Image with CVE / running as root          | `USER root`, outdated base             | Trivy image scan + Kyverno at admission  | Image         |
+| 7  | Deploying an unsigned / untrusted image   | Push image from outside the pipeline   | Cosign + Kyverno `verifyImages`          | Supply chain  |
+| 8  | Deploying a privileged pod                | `privileged: true` in manifest         | Kyverno policy + Pod Security Admission  | Cluster       |
+| 9  | Lateral movement from a compromised pod   | `curl` to another namespace            | Network Policy default-deny + Falco alert| Network       |
+| 10 | Runtime shell spawn in a container        | `kubectl exec` + `sh` in payment pod   | Falco rule → Telegram alert              | Runtime       |
+| 11 | Plaintext / wrong-identity mesh call      | Non-mTLS or unauthorized service call  | Istio mTLS strict + `AuthorizationPolicy`| Mesh          |
+| 12 | SQLi at the edge                          | Malicious payload to the ingress       | AWS WAF managed rules                    | Edge          |
+| 13 | Anomalous AWS account activity            | Unusual API calls / recon              | GuardDuty → Security Hub                 | Cloud         |
 
 Each scenario is a small git commit on `vulnerable-demo`, run through the pipeline, with the block point captured on video.
 
@@ -180,34 +189,45 @@ Each scenario is a small git commit on `vulnerable-demo`, run through the pipeli
 
 ```
 securepay-platform/
-├── app/                    # Payment API (FastAPI)
+├── app/                      # Payment API (FastAPI)
 │   ├── src/
 │   ├── tests/
-│   └── Dockerfile          # multi-stage, distroless, non-root
-├── infra/                  # Terraform — AWS foundation
-│   ├── modules/
-│   │   ├── vpc/
-│   │   ├── eks/
-│   │   ├── iam/
-│   │   └── kms/
-│   └── environments/
-├── k8s/                    # Kubernetes manifests / Helm
-│   ├── base/
-│   ├── kyverno-policies/
-│   ├── network-policies/
-│   ├── istio/
-│   └── falco-rules/
-├── ci/                     # GitLab CI pipeline components
-│   └── security-stages/
-├── scripts/                # Python automation (boto3, alerting)
+│   ├── Dockerfile            # multi-stage, non-root, read-only FS, pinned base
+│   └── docker-compose.yml    # local: API + PostgreSQL
+├── infra/
+│   └── terraform/
+│       ├── modules/
+│       │   ├── vpc/
+│       │   ├── eks/
+│       │   ├── iam/
+│       │   ├── kms/
+│       │   └── rds/          # PostgreSQL — KMS-encrypted, TLS-only, private subnet
+│       └── envs/
+│           └── dev/          # apply / destroy in bursts
+├── k8s/
+│   ├── base/                 # Deployment, Service, ServiceAccount, NetworkPolicy
+│   ├── policies/
+│   │   ├── kyverno/
+│   │   └── gatekeeper/       # comparison
+│   ├── rbac/                 # dev / ops / security / audit
+│   ├── istio/                # PeerAuthentication, AuthorizationPolicy
+│   └── vault/                # External Secrets Operator, SecretStore
+├── observability/            # prometheus, grafana dashboards, loki, alertmanager
+├── security/
+│   ├── falco/                # rules + alerting
+│   ├── scripts/              # Python: boto3 automation, Telegram bot
+│   └── policies/             # semgrep rules, OPA rego
 ├── docs/
 │   ├── architecture.md
-│   ├── threat-model.md     # STRIDE
+│   ├── threat-model.md       # STRIDE
 │   ├── pci-dss-mapping.md
-│   ├── adr/                # Architecture Decision Records
+│   ├── adr/                  # Architecture Decision Records
 │   ├── runbooks/
 │   ├── security-chaos.md
-│   └── demos/              # Screencasts of attack scenarios
+│   └── demos/                # screencasts of attack scenarios
+├── .gitlab-ci.yml
+├── .pre-commit-config.yaml
+├── LICENSE
 └── README.md
 ```
 
@@ -220,11 +240,12 @@ securepay-platform/
 <tr><td><b>IaC</b></td><td>Terraform (S3+DynamoDB backend, KMS-encrypted state)</td></tr>
 <tr><td><b>Orchestration</b></td><td>Kubernetes (EKS), Kyverno, Falco, External Secrets Operator</td></tr>
 <tr><td><b>Service Mesh</b></td><td>Istio — mTLS strict, AuthorizationPolicy, PeerAuthentication</td></tr>
-<tr><td><b>Secrets</b></td><td>HashiCorp Vault + IRSA</td></tr>
+<tr><td><b>Secrets</b></td><td>HashiCorp Vault + External Secrets Operator + IRSA</td></tr>
 <tr><td><b>CI/CD</b></td><td>GitLab CI</td></tr>
-<tr><td><b>Security tooling</b></td><td>Semgrep, Trivy, Grype, Gitleaks, TruffleHog, Checkov, tfsec, Kubesec, OWASP ZAP, Cosign, OPA</td></tr>
+<tr><td><b>Security tooling</b></td><td>Semgrep, Trivy, Grype, Gitleaks, TruffleHog, Checkov, tfsec, Kubesec, OWASP ZAP, Cosign, OPA/Gatekeeper</td></tr>
 <tr><td><b>Observability</b></td><td>Prometheus, Grafana, Loki, Alertmanager</td></tr>
 <tr><td><b>Application</b></td><td>Python 3.12, FastAPI, SQLAlchemy, PostgreSQL, JWT</td></tr>
+<tr><td><b>Local dev</b></td><td>Docker Compose, kind/minikube, pre-commit, Vault dev-mode</td></tr>
 </table>
 
 ---
@@ -235,13 +256,14 @@ Every control in this project is traced to the PCI DSS requirement it helps sati
 
 | PCI DSS Requirement                                              | Implementation in this project                                    |
 | ---------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Req 1 — Network segmentation                                     | VPC subnets, Security Groups, Calico Network Policies              |
-| Req 2 — No vendor defaults, harden systems                       | Non-root containers, distroless base, PSA `restricted`             |
+| Req 1 — Network segmentation                                     | VPC subnets, Security Groups, Network Policies (Calico/Cilium)     |
+| Req 2 — No vendor defaults, harden systems                       | Non-root containers, minimal base (distroless/slim), PSA `restricted` |
 | Req 3 — Protect stored cardholder data                           | Tokenization (no PANs stored), KMS encryption at rest              |
 | Req 4 — Encrypt transmission                                     | Istio mTLS strict, TLS on RDS, HSTS                                |
+| Req 5 — Protect against malware / malicious activity             | Falco runtime detection                                            |
 | Req 6 — Develop secure systems                                   | SAST, SCA, IaC scanning, secure SDLC                               |
 | Req 7 — Restrict access by need-to-know                          | RBAC by team, IAM least privilege, IRSA                            |
-| Req 8 — Identify and authenticate access                         | JWT, MFA-required IAM policies                                     |
+| Req 8 — Identify and authenticate access                         | JWT (app auth), IRSA (workload identity), IAM least-privilege      |
 | Req 10 — Log and monitor                                         | CloudTrail, K8s audit logs to Loki, Falco alerts                   |
 | Req 11 — Test security regularly                                 | DAST in pipeline, chaos scenarios documented                       |
 
@@ -261,42 +283,64 @@ Every control in this project is traced to the PCI DSS requirement it helps sati
 
 ## Roadmap
 
-- [ ] **Phase 1 — Application & local dev**
-  - [ ] FastAPI payment service (`main` branch)
-  - [ ] `vulnerable-demo` branch with planted vulnerabilities
-  - [ ] docker-compose local stack (API + PostgreSQL + Vault dev-mode)
-  - [ ] STRIDE threat model
-- [ ] **Phase 2 — IaC foundation**
-  - [ ] Terraform modules: VPC, IAM, KMS
+- [ ] **Phase 0 — Foundation & repo hygiene**
+  - [ ] Repo structure, README skeleton, ADR template
+  - [ ] pre-commit hooks (gitleaks, markdownlint) from the first commit
+  - [ ] `security-chaos.md` skeleton, conventional commits
+- [ ] **Phase 1 — Payment API & local dev**
+  - [ ] FastAPI service (`main`) with secure defaults
+  - [ ] `vulnerable-demo` branch with planted vulnerabilities (separate commits)
+  - [ ] docker-compose (API + PostgreSQL)
+  - [ ] STRIDE threat model (draft)
+- [ ] **Phase 2 — Secure containerization**
+  - [ ] Multi-stage Dockerfile: non-root, read-only FS, pinned base digest
+  - [ ] Local Trivy image scan
+- [ ] **Phase 3 — CI security pipeline (shift-left gates)**
+  - [ ] GitLab pipeline: secret scan → SAST → SCA → container scan
+  - [ ] Fail-closed gates with tuned severity thresholds
+  - [ ] First attack-scenario screencasts (secret, SQLi, CVE, image)
+- [ ] **Phase 4 — IaC & AWS foundation**
+  - [ ] AWS Budgets + billing alerts
   - [ ] Terraform backend (S3 + DynamoDB lock, KMS-encrypted)
-  - [ ] pre-commit hooks (tfsec, Checkov)
-- [ ] **Phase 3 — EKS & core security**
-  - [ ] EKS cluster via Terraform
-  - [ ] RBAC by team
+  - [ ] Modules: VPC, IAM, KMS, RDS
+  - [ ] IaC scanning in CI (Checkov, tfsec, Kubesec)
+- [ ] **Phase 5 — EKS & baseline Kubernetes security**
+  - [ ] Policies developed in kind, validated on EKS
+  - [ ] EKS via Terraform; RBAC by team (dev/ops/security/audit)
   - [ ] Pod Security Admission `restricted`
-  - [ ] Calico Network Policies (default-deny)
-- [ ] **Phase 4 — Admission & runtime**
-  - [ ] Kyverno policies (image signing, non-root, resource limits, forbidden namespaces)
-  - [ ] Falco rules + Telegram alerting
-  - [ ] Vault + External Secrets Operator + IRSA
-- [ ] **Phase 5 — Service mesh**
-  - [ ] Istio install
-  - [ ] mTLS strict
-  - [ ] AuthorizationPolicy per workload
-- [ ] **Phase 6 — CI/CD security pipeline**
-  - [ ] GitLab pipeline with all scan stages
-  - [ ] Cosign image signing + verification at admission
-  - [ ] DAST stage with OWASP ZAP
-- [ ] **Phase 7 — Observability & demos**
+  - [ ] Network Policies default-deny (Calico/Cilium — ADR)
+- [ ] **Phase 6 — Admission & supply chain**
+  - [ ] Kyverno policies (non-root, limits, no `latest`, no privileged, signed images)
+  - [ ] OPA/Gatekeeper comparison (ADR)
+  - [ ] Cosign signing in CI + Kyverno `verifyImages` at admission
+- [ ] **Phase 7 — Secrets management**
+  - [ ] Vault (dev-mode local → cluster)
+  - [ ] External Secrets Operator + IRSA
+  - [ ] Secret rotation demo
+- [ ] **Phase 8 — Service mesh (zero-trust)**
+  - [ ] Istio install, mTLS `STRICT`, PeerAuthentication
+  - [ ] AuthorizationPolicy default-deny per workload
+- [ ] **Phase 9 — Runtime security**
+  - [ ] Falco rules for attacker TTPs
+  - [ ] Falco → Alertmanager → Telegram (Python bot)
+- [ ] **Phase 10 — DAST & dynamic testing**
+  - [ ] OWASP ZAP against the OpenAPI spec (manual/scheduled — CI minutes)
+- [ ] **Phase 11 — Observability**
   - [ ] Prometheus + Grafana "Security Posture" dashboard
-  - [ ] Loki + audit log pipeline
-  - [ ] Record all attack-scenario screencasts
+  - [ ] Loki + K8s/Vault audit-log pipeline
+- [ ] **Phase 12 — AWS cloud security services**
+  - [ ] CloudTrail, GuardDuty, AWS Config
+  - [ ] Security Hub (PCI DSS standard), AWS WAF
+- [ ] **Phase 13 — Docs, threat model & demo consolidation**
+  - [ ] Finalize STRIDE, PCI mapping, ADRs, runbooks
+  - [ ] Record & embed all attack-scenario screencasts
+  - [ ] Polish public README
 
 ---
 
 ## About Me
 
-I'm building this as a hands-on portfolio of the DevSecOps skills needed to a fintech environment: shift-left security, defence-in-depth on Kubernetes, secure cloud foundations, and — most importantly — the mindset of thinking like both attacker and defender.
+I'm building this as a hands-on portfolio of the DevSecOps skills needed in a fintech environment: shift-left security, defence-in-depth on Kubernetes, secure cloud foundations, and — most importantly — the mindset of thinking like both attacker and defender.
 
 Background: several years of Linux/network administration, several years of Python backend development. Currently transitioning fully into DevSecOps, with this project as the demonstration piece.
 
