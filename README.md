@@ -16,17 +16,15 @@
 
 ## TL;DR
 
-A payment API is only as secure as the platform around it. This project builds that platform end-to-end:
+A payment API surrounded by a secure platform that is built end-to-end:
 
 - **Multi-layered CI/CD security pipeline** — SAST, SCA, secret scanning, IaC scanning, container scanning, DAST, image signing.
 - **Hardened AWS + EKS foundation** — Terraform-managed VPC, IAM with IRSA, KMS, GuardDuty, CloudTrail, Security Hub.
 - **Kubernetes defence-in-depth** — RBAC by team, Network Policies, Pod Security Admission, Kyverno admission control, Falco runtime detection.
 - **Zero-trust networking** — Istio mTLS strict mode, `AuthorizationPolicy` per service.
-- **Secrets done right** — HashiCorp Vault + External Secrets Operator + IRSA. No secrets in Git, ever.
+- **Secrets** — HashiCorp Vault + External Secrets Operator + IRSA.
 - **PCI DSS mapping** — every control traced to the requirement it satisfies.
-- **Live attack scenarios** — a parallel `vulnerable-demo` branch proves each control catches what it should.
-
-**The selling point isn't "I set up the stack" — it's "here's a screencast of the pipeline blocking a hardcoded AWS key, a container with a critical CVE, a privileged pod, and a lateral-movement attempt from a compromised container."**
+- **Attack scenarios** — a parallel `vulnerable-demo` branch proves each control does its job.
 
 ---
 
@@ -48,11 +46,9 @@ A payment API is only as secure as the platform around it. This project builds t
 
 ## Why this project?
 
-Most DevSecOps portfolios show a stack. This one shows **a stack that provably works** against real attacker behaviour.
+This portfolio shows **a stack that provably works** against real attacker behaviour.
 
-The scenario: I'm the DevSecOps engineer at a fictional fintech, tasked with building the full secure platform around a new payment API. Constraints match a real fintech environment — **PCI DSS applies**, blast radius must be minimised, secrets must never touch a repo, every deployment must pass through automated security gates, and runtime behaviour must be observable.
-
-Rather than treating the application as the centre of the project, the API is deliberately minimal — just enough surface area for security tooling to have something meaningful to protect. **The platform is the product.**
+The Scenario is to build a full secure platform around a new payment API. Constraints match a real fintech environment — **PCI DSS applies**, blast radius must be minimised, secrets must never touch a repo, every deployment must pass through automated security gates, and runtime behaviour must be observable.
 
 ---
 
@@ -125,7 +121,7 @@ flowchart TB
 
 ## The SecurePay Application
 
-A minimal FastAPI-based payment service. **Not the point of the project** — but a realistic target for the security tooling.
+A minimal FastAPI-based payment service — a realistic target for the security tooling.
 
 **Endpoints:**
 - `POST /transactions` — create a transaction (`amount`, `currency`, `card_token`)
@@ -134,14 +130,12 @@ A minimal FastAPI-based payment service. **Not the point of the project** — bu
 - `POST /auth/login` — JWT
 - `GET /health`, `GET /metrics` — for K8s probes and Prometheus
 
-**PCI mindset from day one:** no real PANs anywhere. Transactions reference **tokenized card IDs** (UUIDs pointing to a hypothetical PCI-scoped vault we don't operate). This is itself a PCI DSS pattern — **scope reduction through tokenization**.
-
 **Two branches, one purpose:**
 
 | Branch              | Purpose                                                                                             |
 | ------------------- | --------------------------------------------------------------------------------------------------- |
 | `main`              | Hardened reference implementation. Passes every pipeline gate.                                      |
-| `vulnerable-demo`   | Same API with deliberately planted vulnerabilities. Used to prove each security control blocks it. |
+| `vulnerable-demo`   | Same API with deliberately planted vulnerabilities. To catch them all.                              |
 
 ---
 
@@ -151,12 +145,12 @@ A minimal FastAPI-based payment service. **Not the point of the project** — bu
 | ------------------------ | ------------------------------------------------------------------------------------------------- |
 | **Source code**          | Semgrep SAST, Gitleaks & TruffleHog secret detection, pre-commit hooks                            |
 | **Dependencies**         | Trivy & Grype SCA, dependency pinning                                                             |
-| **Infrastructure code**  | Checkov, tfsec, Kubesec — every Terraform and manifest scanned                                    |
+| **Infrastructure code**  | Checkov, tfsec, Kubesec                                                                           |
 | **Container image**      | Non-root user, distroless base, Trivy image scan, Cosign signing, admission verification          |
 | **Kubernetes cluster**   | RBAC (`dev` / `ops` / `security` / `audit`), Pod Security Admission `restricted`, Kyverno policies |
 | **Network**              | Calico Network Policies (default-deny), Istio `mTLS STRICT`, `AuthorizationPolicy` per workload   |
-| **Secrets**              | Vault + External Secrets Operator + IRSA — no static credentials, ever                            |
-| **Runtime**              | Falco rules for common attacker TTPs, alerts routed to Telegram via Alertmanager                  |
+| **Secrets**              | Vault + External Secrets Operator + IRSA                                                          |
+| **Runtime**              | Falco rules for common attacker TTPs, alerts to Telegram via Alertmanager                         |
 | **Cloud plane**          | CloudTrail, GuardDuty, Config, Security Hub, KMS-encrypted state and volumes                      |
 | **Edge**                 | AWS WAF, rate limiting, security headers (HSTS, CSP)                                              |
 
@@ -164,7 +158,7 @@ A minimal FastAPI-based payment service. **Not the point of the project** — bu
 
 ## Attack scenarios
 
-The killer feature. Each scenario has a recorded screencast in [`docs/demos/`](./docs/demos/).
+Each scenario has a recorded screencast in [`docs/demos/`](./docs/demos/).
 
 | # | Scenario                                              | Attacker action                             | Control that blocks                       | Layer          |
 | - | ----------------------------------------------------- | ------------------------------------------- | ----------------------------------------- | -------------- |
@@ -178,7 +172,7 @@ The killer feature. Each scenario has a recorded screencast in [`docs/demos/`](.
 | 8 | Bypassing JWT with `alg: none`                        | Forged token in `vulnerable-demo`           | Hardened JWT validation in `main`         | Application    |
 | 9 | Unauthenticated access to admin endpoint              | Direct HTTP request                         | Istio `AuthorizationPolicy`               | Mesh           |
 
-Each scenario is a small git commit on `vulnerable-demo`, run through the pipeline, with the block point captured on video. **This is the interview centrepiece.**
+Each scenario is a small git commit on `vulnerable-demo`, run through the pipeline, with the block point captured on video.
 
 ---
 
@@ -255,13 +249,13 @@ Every control in this project is traced to the PCI DSS requirement it helps sati
 
 ## Documentation
 
-- [`docs/architecture.md`](./docs/architecture.md) — full architecture write-up
+- [`docs/architecture.md`](./docs/architecture.md) — full architecture
 - [`docs/threat-model.md`](./docs/threat-model.md) — STRIDE model for the payment API
 - [`docs/pci-dss-mapping.md`](./docs/pci-dss-mapping.md) — PCI DSS control mapping
-- [`docs/adr/`](./docs/adr/) — Architecture Decision Records (Kyverno vs Gatekeeper, Istio vs Linkerd, Vault vs AWS Secrets Manager, etc.)
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records
 - [`docs/runbooks/`](./docs/runbooks/) — incident response procedures
 - [`docs/security-chaos.md`](./docs/security-chaos.md) — chaos-engineering log
-- [`docs/demos/`](./docs/demos/) — attack scenario screencasts
+- [`docs/demos/`](./docs/demos/) — attack screencasts
 
 ---
 
@@ -302,12 +296,10 @@ Every control in this project is traced to the PCI DSS requirement it helps sati
 
 ## About Me
 
-I'm building this as a hands-on portfolio of the DevSecOps skills I bring to a fintech environment: shift-left security, defence-in-depth on Kubernetes, secure cloud foundations, and — most importantly — the mindset of thinking like both attacker and defender.
+I'm building this as a hands-on portfolio of the DevSecOps skills needed to a fintech environment: shift-left security, defence-in-depth on Kubernetes, secure cloud foundations, and — most importantly — the mindset of thinking like both attacker and defender.
 
 Background: several years of Linux/network administration, several years of Python backend development. Currently transitioning fully into DevSecOps, with this project as the demonstration piece.
 
-**Contact:** [your email / LinkedIn / Telegram]
-
 ---
 
-<sub>Built as a portfolio project. All resources are ephemeral (`terraform apply` → work → `terraform destroy`) to control AWS costs. No real cardholder data is processed anywhere in this project.</sub>
+<sub>Built as a portfolio project. No real cardholder data is processed anywhere in this project.</sub>
