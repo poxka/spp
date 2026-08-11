@@ -32,21 +32,21 @@ A payment API is only as secure as the platform around it. This project builds t
 
 ## Table of Contents
 
-- [Why this project](#why-this-project)
+- [Why this project?](#why-this-project)
 - [Architecture](#architecture)
-- [The application under protection](#the-application-under-protection)
-- [Security controls at a glance](#security-controls-at-a-glance)
-- [Demo attack scenarios](#demo-attack-scenarios)
-- [Repository layout](#repository-layout)
-- [Tech stack](#tech-stack)
+- [The SecurePay Application](#the-securepay-application)
+- [Security controls](#security-controls)
+- [Attack scenarios](#attack-scenarios)
+- [Layouts](#layouts)
+- [Stack](#stack)
 - [PCI DSS mapping](#pci-dss-mapping)
 - [Documentation](#documentation)
 - [Roadmap](#roadmap)
-- [About the author](#about-the-author)
+- [About Me](#about-me)
 
 ---
 
-## Why this project
+## Why this project?
 
 Most DevSecOps portfolios show a stack. This one shows **a stack that provably works** against real attacker behaviour.
 
@@ -123,7 +123,7 @@ flowchart TB
 
 ---
 
-## The application under protection
+## The SecurePay Application
 
 A minimal FastAPI-based payment service. **Not the point of the project** — but a realistic target for the security tooling.
 
@@ -145,7 +145,7 @@ A minimal FastAPI-based payment service. **Not the point of the project** — bu
 
 ---
 
-## Security controls at a glance
+## Security controls
 
 | Layer                    | Controls                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------- |
@@ -162,7 +162,7 @@ A minimal FastAPI-based payment service. **Not the point of the project** — bu
 
 ---
 
-## Demo attack scenarios
+## Attack scenarios
 
 The killer feature. Each scenario has a recorded screencast in [`docs/demos/`](./docs/demos/).
 
@@ -182,7 +182,7 @@ Each scenario is a small git commit on `vulnerable-demo`, run through the pipeli
 
 ---
 
-## Repository layout
+## Layouts
 
 ```
 securepay-platform/
@@ -219,7 +219,7 @@ securepay-platform/
 
 ---
 
-## Tech stack
+## Stack
 
 <table>
 <tr><td><b>Cloud</b></td><td>AWS — EKS, VPC, IAM, KMS, S3, Lambda, CloudTrail, GuardDuty, Config, Security Hub, WAF</td></tr>
@@ -300,7 +300,7 @@ Every control in this project is traced to the PCI DSS requirement it helps sati
 
 ---
 
-## About the author
+## About Me
 
 I'm building this as a hands-on portfolio of the DevSecOps skills I bring to a fintech environment: shift-left security, defence-in-depth on Kubernetes, secure cloud foundations, and — most importantly — the mindset of thinking like both attacker and defender.
 
