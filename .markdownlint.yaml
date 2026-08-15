@@ -1,0 +1,12 @@
+default: true
+
+MD013: false   # long badge rows / wide tables in README
+MD033: false   # README uses inline HTML for the stack table
+MD036: false   # bold sub-headings in README/ADR (**Positive**, **Endpoints:**)
+MD060: false   # column-aligned tables (| -- |) in README/charter
+
+MD024:
+  siblings_only: true   # allow repeated headings across different ADRs
+
+MD029:
+  style: ordered   # 1. 2. 3. instead of 1. 1. 1.ы

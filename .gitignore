@@ -1,0 +1,81 @@
+# ---- Secrets & env -------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+credentials
+.credentials
+secrets.*
+# Terraform variable files
+*.tfvars
+!*.tfvars.example
+
+# ---- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+wheels/
+.venv/
+venv/
+env/
+ENV/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+pip-log.txt
+
+# ---- Terraform --------------------------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+tfplan
+*.tfplan
+
+# ---- Kubernetes / Helm ------------------------------------------------------
+kubeconfig
+*.kubeconfig
+.kube/
+charts/*.tgz
+*.retry
+
+# ---- Docker -----------------------------------------------------------------
+.docker/
+
+# ---- IDE / editors ----------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ---- Tool output / scan reports ---------------------------------------------
+*.sarif
+trivy-report.*
+zap-report.*
+.trivycache/
+node_modules/
