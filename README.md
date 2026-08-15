@@ -283,10 +283,10 @@ Every control in this project is traced to the PCI DSS requirement it helps sati
 
 ## Roadmap
 
-- [ ] **Phase 0 — Foundation & repo hygiene**
-  - [ ] Repo structure, README skeleton, ADR template
-  - [ ] pre-commit hooks (gitleaks, markdownlint) from the first commit
-  - [ ] `security-chaos.md` skeleton, conventional commits
+- [x] **Phase 0 — Foundation & repo hygiene**
+  - [x] Repo structure, README skeleton, ADR template
+  - [x] pre-commit hooks (gitleaks, markdownlint) from the first commit
+  - [x] `security-chaos.md` skeleton, conventional commits
 - [ ] **Phase 1 — Payment API & local dev**
   - [ ] FastAPI service (`main`) with secure defaults
   - [ ] `vulnerable-demo` branch with planted vulnerabilities (separate commits)
