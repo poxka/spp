@@ -125,6 +125,7 @@ flowchart TB
 A minimal FastAPI-based payment service — a realistic target for the security tooling.
 
 **Endpoints:**
+
 - `POST /transactions` — create a transaction (`amount`, `currency`, `card_token`)
 - `GET /transactions/{id}` — fetch one
 - `GET /transactions` — list with filters
@@ -187,8 +188,7 @@ Each scenario is a small git commit on `vulnerable-demo`, run through the pipeli
 
 ## Layouts
 
-```
-securepay-platform/
+```securepay-platform/
 ├── app/                      # Payment API (FastAPI)
 │   ├── src/
 │   ├── tests/
