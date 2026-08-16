@@ -8,22 +8,18 @@
 
 ## Context
 
-What problem are we solving, and what forces are at play — technical,
+What problem am I solving, and what forces are at play — technical,
 cost/CI-minute budget, target-job stack, and the portfolio narrative?
-State the constraints honestly. An ADR with no tension isn't a decision,
-it's a note.
+State the constraints honestly.
 
 ## Decision
 
-The choice we made, in active voice: "We will …". One decision per ADR.
+The choice I made, in active voice: "I will …". One decision per ADR.
 
 ## Alternatives considered
 
-- **&lt;Option A&gt;** — what it is; pros; cons; why we didn't pick it.
+- **&lt;Option A&gt;** — what it is; pros; cons; why I didn't pick it.
 - **&lt;Option B&gt;** — same.
-
-(Listing the roads not taken is the whole point — this is what an interviewer
-probes with "why X and not Y?")
 
 ## Consequences
 
@@ -33,7 +29,7 @@ probes with "why X and not Y?")
 
 **Negative / trade-offs**
 
-- … (every real decision has a cost — name it)
+- …
 
 **Follow-ups**
 
@@ -41,5 +37,4 @@ probes with "why X and not Y?")
 
 ## Interview notes
 
-The 30-second spoken defense of this decision. If someone asks "why did you
-choose this?", this is the answer you give without hesitating.
+A short definition of the choice I made.

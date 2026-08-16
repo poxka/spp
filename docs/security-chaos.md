@@ -1,6 +1,6 @@
 # Security Chaos Log
 
-> A running journal of **attack scenarios**: for each control we build, we play
+> A running journal of **attack scenarios**: for each control I build, I play
 > attacker — push the bad code / image / manifest / API call — and record what
 > the defense actually did. Hypothesis → action → expected defense → observed
 > result → evidence. If a control *didn't* catch what it claims to, that's a
@@ -41,7 +41,7 @@ Copy this block for each new scenario.
 - **Attacker action:** <what the "attacker" did>
 - **Vulnerable commit:** <link/sha on vulnerable-demo, if applicable>
 - **Control under test:** <tool / policy expected to catch it>
-- **Hypothesis:** <what we expect to happen>
+- **Hypothesis:** <what I expect to happen>
 - **Steps to reproduce:**
   1. …
   2. …
