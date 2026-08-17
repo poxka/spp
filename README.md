@@ -287,11 +287,11 @@ Every control in this project is traced to the PCI DSS requirement it helps sati
   - [x] Repo structure, README skeleton, ADR template
   - [x] pre-commit hooks (gitleaks, markdownlint) from the first commit
   - [x] `security-chaos.md` skeleton, conventional commits
-- [ ] **Phase 1 — Payment API & local dev**
-  - [ ] FastAPI service (`main`) with secure defaults
-  - [ ] `vulnerable-demo` branch with planted vulnerabilities (separate commits)
-  - [ ] docker-compose (API + PostgreSQL)
-  - [ ] STRIDE threat model (draft)
+- [x] **Phase 1 — Payment API & local dev**
+  - [x] FastAPI service (`main`) with secure defaults
+  - [x] `vulnerable-demo` branch with planted vulnerabilities (separate commits)
+  - [x] docker-compose (API + PostgreSQL)
+  - [x] STRIDE threat model (draft)
 - [ ] **Phase 2 — Secure containerization**
   - [ ] Multi-stage Dockerfile: non-root, read-only FS, pinned base digest
   - [ ] Local Trivy image scan
