@@ -50,15 +50,15 @@ class TransactionFilter(BaseModel):
     limit: int = Field(default=20, ge=1, le=100)
     offset: int = Field(default=0, ge=0)
 
-    @field_validator("currency")
-    @classmethod
-    def _normalize_currency(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
+    # @field_validator("currency")
+    # @classmethod
+    # def _normalize_currency(cls, value: str | None) -> str | None:
+    #     if value is None:
+    #         return None
 
-        normalized = value.strip().upper()
-        if normalized not in ALLOWED_CURRENCIES:
-            raise ValueError(
-                f"currency must be one of {sorted(ALLOWED_CURRENCIES)}"
-            )
-        return normalized
+    #     normalized = value.strip().upper()
+    #     if normalized not in ALLOWED_CURRENCIES:
+    #         raise ValueError(
+    #             f"currency must be one of {sorted(ALLOWED_CURRENCIES)}"
+    #         )
+    #     return normalized

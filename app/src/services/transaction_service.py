@@ -39,23 +39,17 @@ async def get_transaction(
 async def list_transactions(
     db: AsyncSession, owner_id: uuid.UUID, filters: TransactionFilter
 ) -> list[Transaction]:
-    stmt = select(Transaction).where(Transaction.owner_id == owner_id)
+    from sqlalchemy import text
+
+    # DEMO VULN: string-built SQL, user input concatenated directly.
+    query = f"SELECT * FROM transactions WHERE owner_id = '{owner_id}'"
 
     if filters.currency is not None:
-        stmt = stmt.where(Transaction.currency == filters.currency)
+        query += f" AND currency = '{filters.currency}'"
     if filters.status is not None:
-        stmt = stmt.where(Transaction.status == filters.status)
-    if filters.min_amount is not None:
-        stmt = stmt.where(Transaction.amount >= filters.min_amount)
-    if filters.max_amount is not None:
-        stmt = stmt.where(Transaction.amount <= filters.max_amount)
+        query += f" AND status = '{filters.status}'"
+    query += f" ORDER BY created_at DESC LIMIT {filters.limit} OFFSET {filters.offset}"
 
-    stmt = (
-        stmt.order_by(Transaction.created_at.desc())
-        .limit(filters.limit)
-        .offset(filters.offset)
-    )
+    result = await db.execute(text(query))
 
-    result = await db.execute(stmt)
-
-    return list(result.scalars().all())
+    return [Transaction(**dict(row)) for row in result.mappings().all()]
