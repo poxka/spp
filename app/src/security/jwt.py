@@ -22,9 +22,10 @@ def create_access_token(subject: str) -> tuple[str, int]:
 
 
 def decode_access_token(token: str) -> dict:
+    # DEMO VULN: signature not verified — forged/tampered tokens are accepted.
     return jwt.decode(
         token,
         settings.jwt_secret_key,
-        algorithms=[settings.jwt_algorithm],
-        options={"require": ["exp", "iat", "sub"]},
+        algorithms=["HS256", "none"],
+        options={"verify_signature": False},
     )
