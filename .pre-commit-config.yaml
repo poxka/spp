@@ -10,9 +10,6 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: check-yaml
-        # NOTE: once templated YAML lands (GitLab CI !reference tags in Phase 3,
-        # Helm/Kyverno in Phase 5+), either add `args: [--unsafe]` here or
-        # `exclude:` those paths — check-yaml chokes on custom !tags.
       - id: check-merge-conflict
       - id: check-added-large-files
         args: ["--maxkb=1024"]

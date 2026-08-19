@@ -1,0 +1,19 @@
+title = "securepay-platform gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "python-typed-secret-assignment"
+description = "Secret-like value in a Python typed assignment (key: type = 'value')"
+regex = '''(?i)(secret|password|token|api_key|access_key)\w*\s*:\s*\w+\s*=\s*["']([\w./+=-]{16,})["']'''
+keywords = [
+    "access", "auth", "api", "credential", "creds",
+    "key", "passwd", "password", "secret", "token",
+]
+[[rules.allowlists]]
+description = "skip identifier-style names already excluded by generic-api-key (e.g. access_key_id, key_id, api_id) so specialized rules like aws-access-token own that finding instead of duplicating it"
+regexTarget = "match"
+regexes = [
+    '''(?i)(?:access|key|api|credential|creds|token)[_.-]?id\b''',
+]
