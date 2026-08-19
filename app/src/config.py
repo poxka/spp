@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     seed_user: str | None = None
     seed_password: str | None = None
 
+    # DEMO VULN: hardcoded credentials in source. Never do this.
+    aws_access_key_id: str = "AKIAZQ3XPLM7WKGJH2NR"
+    aws_secret_access_key: str = "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"
+    jwt_secret_key: str = "8f9c2d1e4a3b7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0"
+
     @field_validator("jwt_algorithm")
     @classmethod
     def _reject_unlisted_algorithm(cls, value: str) -> str:
