@@ -31,8 +31,6 @@ It pairs with the `vulnerable-demo` branch (see
 
 ## Entry template
 
-Copy this block for each new scenario.
-
 ```markdown
 ### [#NN] <short scenario name>
 
@@ -54,9 +52,56 @@ Copy this block for each new scenario.
 
 ## Log
 
-*No scenarios recorded yet. The first entries land in Phase 3 (CI gates:
-hardcoded secret, CVE dependency, SQLi / `alg:none`, image with CVE).*
+| #   | Scenario                                  | Layer                | Control    | Status | Phase   | Evidence |
+| --- | ------------------------------------------ | --------------------- | ----------- | ------ | ------- | -------- |
+| #01 | Gitleaks generic-api-key coverage gaps      | Source (pre-commit)   | Gitleaks    | ✅      | Phase 1 | [screenshots](./demos/secret-detections/) |
 
-| #   | Scenario            | Layer | Control | Status | Phase | Evidence |
-| --- | ------------------- | ----- | ------- | ------ | ----- | -------- |
-| —   | *(pending Phase 3)* | —     | —       | ⏳      | —     | —        |
+### [#01] Gitleaks generic-api-key coverage gaps (stopwords, typed syntax, duplicate findings)
+
+- **Phase / layer:** Phase 1 / Source — pre-commit secret scanning
+- **Date:** 2026-08-19
+- **Attacker action:** Hardcoded an AWS access key, AWS secret key, and JWT
+  signing secret in `app/src/config.py` on `vulnerable-demo`.
+- **Vulnerable commit:** `vulnerable-demo`@[`d9ad2a7`](https://github.com/poxka/spp/commit/d9ad2a7)
+- **Control under test:** Gitleaks (pre-commit hook, `generic-api-key` +
+  `aws-access-token` default rules)
+- **Hypothesis:** All three hardcoded values should be caught by gitleaks
+  before the commit lands.
+- **Steps to reproduce:**
+  1. Add three hardcoded secret-like values to `Settings` in
+     `app/src/config.py`, Python typed-assignment style
+     (`name: type = "value"`).
+  2. `git add` the file and run `pre-commit run gitleaks -v`.
+- **Expected defense:** Pre-commit blocks the commit, one finding per value.
+- **Observed result:** ✅ Achieved, but not on the first try. The default
+  gitleaks ruleset missed two of the three secrets initially:
+
+  - A secret written as a readable phrase slipped past undetected — the
+    scanner allowlists common dictionary words to cut down on false
+    positives, and the phrasing happened to trip that allowlist. Switching
+    to a fully random value fixed it immediately.
+  - A secret declared with Python's typed-assignment syntax
+    (`name: type = "value"`) also went undetected, even when random. The
+    default rule's pattern assumes a simpler `name = "value"` shape and
+    doesn't handle the extra type annotation in between. Fixed by adding a
+    small custom rule scoped to that specific syntax, layered on top of
+    the default ruleset rather than replacing it.
+  - That fix then over-corrected: it started double-flagging one of the
+    secrets that a more specific built-in rule already caught correctly.
+    Fixed by teaching the custom rule to back off in exactly the cases the
+    built-in rule already owns.
+
+  End state, re-verified: all three secrets caught, no duplicate findings,
+  values redacted in the tool's output.
+- **Evidence:** `docs/demos/secret-detections/`
+- **PCI DSS:** Req 6.2 (secure coding), Req 12.10.1 (process gap found and
+  closed before reaching `main`)
+- **Follow-up:** Re-check this allowlist behavior on future gitleaks
+  upgrades — default rules can change silently between versions.
+
+**Bonus finding:** GitHub's server-side push protection independently
+caught the same AWS Access Key and Secret Key on push, blocking the branch
+until explicitly allowlisted per-secret. It did NOT flag the JWT secret
+(different ruleset — cloud-provider key patterns only). Two independent
+layers (local pre-commit + GitHub server-side), two different blind spots,
+same demo secrets.
