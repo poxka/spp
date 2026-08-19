@@ -55,6 +55,7 @@ It pairs with the `vulnerable-demo` branch (see
 | #   | Scenario                                  | Layer                | Control    | Status | Phase   | Evidence |
 | --- | ------------------------------------------ | --------------------- | ----------- | ------ | ------- | -------- |
 | #01 | Gitleaks generic-api-key coverage gaps      | Source (pre-commit)   | Gitleaks    | ✅      | Phase 1 | [screenshots](./demos/secret-detections/) |
+| #02 | JWT signature verification disabled       | Source / Auth        | JWT decode logic (app) | ✅      | Phase 1 | [screenshots](./demos/bad-jwt/) |
 
 ### [#01] Gitleaks generic-api-key coverage gaps (stopwords, typed syntax, duplicate findings)
 
@@ -105,3 +106,31 @@ until explicitly allowlisted per-secret. It did NOT flag the JWT secret
 (different ruleset — cloud-provider key patterns only). Two independent
 layers (local pre-commit + GitHub server-side), two different blind spots,
 same demo secrets.
+
+### [#02] JWT signature verification disabled
+
+- **Phase / layer:** Phase 1 / Source — authentication
+- **Date:** 2026-08-19
+- **Attacker action:** Took a valid, expired-looking access token, corrupted
+  its signature, and sent it as-is on `vulnerable-demo`.
+- **Vulnerable commit:** `vulnerable-demo`@[`9883c71`](https://github.com/poxka/spp/commit/9883c71)
+- **Control under test:** JWT decode logic in `security/jwt.py`
+- **Hypothesis:** A token with a tampered signature should be rejected
+  with 401, same as on `main`.
+- **Steps to reproduce:**
+  1. Log in to get a valid token.
+  2. Replace everything after the last `.` with garbage (corrupting the
+     signature) and call a protected endpoint with it.
+- **Expected defense:** 401 Unauthorized — signature mismatch rejected.
+- **Observed result:** ✅ Demonstrated correctly. With signature
+  verification intentionally disabled for this scenario, the tampered
+  token was accepted (200) instead of rejected — confirming that on
+  `main`, where verification is enforced, the same forged token would be
+  rejected outright. This is the exact class of bug real-world `alg=none`
+  / signature-bypass incidents come from: trusting a token's payload
+  without actually checking who signed it.
+- **Evidence:** `docs/demos/bad-jwt/`
+- **PCI DSS:** Req 8.3 (strong authentication), Req 6.2 (secure coding)
+- **Follow-up:** None — `main` already enforces a fixed algorithm allowlist
+  and mandatory signature verification (see `security/jwt.py`, ADR-covered
+  implicitly by the auth design).
