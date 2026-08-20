@@ -71,11 +71,10 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins_list,
+        allow_origins=["*"],        # DEMO VULN: any origin
         allow_credentials=True,
-        allow_methods=["GET", "POST"],
-        allow_headers=["Authorization", "Content-Type"],
-        max_age=600,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
     app.add_middleware(SecurityHeadersMiddleware)
 
