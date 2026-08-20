@@ -54,8 +54,9 @@ It pairs with the `vulnerable-demo` branch (see
 
 | #   | Scenario                                  | Layer                | Control    | Status | Phase   | Evidence |
 | --- | ------------------------------------------ | --------------------- | ----------- | ------ | ------- | -------- |
-| #01 | Gitleaks generic-api-key coverage gaps      | Source (pre-commit)   | Gitleaks    | ✅      | Phase 1 | [screenshots](./demos/secret-detections/) |
-| #02 | JWT signature verification disabled       | Source / Auth        | JWT decode logic (app) | ✅      | Phase 1 | [screenshots](./demos/bad-jwt/) |
+| #01 | Gitleaks generic-api-key coverage gaps      | Source (pre-commit)   | Gitleaks    | ✅ | Phase 1 | [screenshots](./demos/secret-detections/) |
+| #02 | JWT signature verification disabled       | Source / Auth        | JWT decode logic (app) | ✅ | Phase 1 | [screenshots](./demos/bad-jwt/) |
+| #03 | `/debug/env` leaks environment variables   | Source / API surface | none — shouldn't exist | ✅ | Phase 1 | [screenshot](./demos/env_leaks.png) |
 
 ### [#01] Gitleaks generic-api-key coverage gaps (stopwords, typed syntax, duplicate findings)
 
@@ -134,3 +135,32 @@ same demo secrets.
 - **Follow-up:** None — `main` already enforces a fixed algorithm allowlist
   and mandatory signature verification (see `security/jwt.py`, ADR-covered
   implicitly by the auth design).
+
+### [#03] `/debug/env` leaks environment variables
+
+- **Phase / layer:** Phase 1 / Source — API surface / information disclosure
+- **Date:** 2026-08-20
+- **Attacker action:** Called an undocumented `/debug/env` endpoint on
+  `vulnerable-demo` with no authentication.
+- **Vulnerable commit:** `vulnerable-demo`@[`89cc827`](https://github.com/poxka/spp/commit/89cc827)
+- **Control under test:** API surface — the endpoint simply shouldn't exist
+  outside local debugging, and never in a way reachable without auth.
+- **Hypothesis:** Hitting the endpoint returns every environment variable
+  in plaintext, including DB credentials and the JWT signing secret.
+- **Steps to reproduce:**
+  1. `curl http://.../debug/env` — no token, no special access.
+- **Expected defense:** Endpoint doesn't exist on `main` — 404.
+- **Observed result:** ✅ Demonstrated correctly. On `vulnerable-demo` the
+  endpoint returns the full environment unauthenticated, including secrets
+  that should never leave the process. This is a reminder that the
+  cheapest fix for most information-disclosure bugs is simply not building
+  the endpoint in the first place — no scanner catches a debug route that
+  was never meant to ship, it has to be caught by discipline and code
+  review, not tooling.
+- **Evidence:** `docs/demos/debug-env-leak.png`
+- **PCI DSS:** Req 6.2 (secure coding), Req 3 (no exposure of secrets/keys
+  that protect stored data), Req 7 (no unauthenticated access to sensitive
+  data)
+- **Follow-up:** None — `main` has no such endpoint. Worth carrying this
+  principle into the CI phase: a route/attack-surface review, not just
+  vulnerability scanning, catches this class of bug earlier.
