@@ -58,6 +58,7 @@ It pairs with the `vulnerable-demo` branch (see
 | #02 | JWT signature verification disabled       | Source / Auth        | JWT decode logic (app) | ✅ | Phase 1 | [screenshots](./demos/bad-jwt/) |
 | #03 | `/debug/env` leaks environment variables   | Source / API surface | none — shouldn't exist | ✅ | Phase 1 | [screenshot](./demos/env_leaks.png) |
 | #04 | SQL injection in `GET /transactions` filter | Source / Data access | ORM parameterization | ✅ | Phase 1 | [screenshots](./demos/sqli-transaction-filter/) |
+| #05 | Permissive CORS (any origin allowed)       | Source / Edge         | CORS middleware allowlist | ✅ | Phase 1 | [screenshots](./demos/any-cors/) |
 
 ### [#01] Gitleaks generic-api-key coverage gaps (stopwords, typed syntax, duplicate findings)
 
@@ -200,3 +201,31 @@ same demo secrets.
 - **Follow-up:** None — `main` uses SQLAlchemy ORM with bound parameters
   throughout; this class of bug requires deliberately bypassing that, as
   done here for the demo.
+
+### [#05] Permissive CORS (any origin allowed)
+
+- **Phase / layer:** Phase 1 / Source — CORS policy
+- **Date:** 2026-08-20
+- **Attacker action:** Sent a request with `Origin: https://evil.example.com`
+  on `vulnerable-demo`, where the CORS middleware was switched from a
+  strict allowlist to wildcard origins.
+- **Vulnerable commit:** `vulnerable-demo` @ [`2b7e796`](https://github.com/poxka/spp/commit/2b7e796)
+- **Control under test:** CORS middleware configuration in `main.py`
+- **Hypothesis:** A request from an origin not on the allowlist should not
+  receive an `Access-Control-Allow-Origin` header back.
+- **Steps to reproduce:**
+  1. `curl` any endpoint with `Origin: https://evil.example.com` set.
+  2. Inspect the response for `Access-Control-Allow-Origin`.
+- **Expected defense:** No `Access-Control-Allow-Origin` header for an
+  origin outside the allowlist.
+- **Observed result:** ✅ Demonstrated correctly. On `main`, the header is
+  absent for the untrusted origin — the browser would block the response
+  from being read by that origin's JavaScript. On `vulnerable-demo`, the
+  header reflected the attacker's origin back exactly, meaning any website
+  on the internet could make authenticated, credentialed requests to the
+  API from a victim's browser and read the response.
+- **Evidence:** `docs/demos/any-cors/`
+- **PCI DSS:** Req 6.2 (secure coding), Req 4 (unauthorized data exposure
+  in transit to untrusted origins)
+- **Follow-up:** None — `main` uses a strict, env-driven origin allowlist
+  (`CORS_ALLOWED_ORIGINS`), verified above.
