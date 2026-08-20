@@ -57,6 +57,7 @@ It pairs with the `vulnerable-demo` branch (see
 | #01 | Gitleaks generic-api-key coverage gaps      | Source (pre-commit)   | Gitleaks    | ✅ | Phase 1 | [screenshots](./demos/secret-detections/) |
 | #02 | JWT signature verification disabled       | Source / Auth        | JWT decode logic (app) | ✅ | Phase 1 | [screenshots](./demos/bad-jwt/) |
 | #03 | `/debug/env` leaks environment variables   | Source / API surface | none — shouldn't exist | ✅ | Phase 1 | [screenshot](./demos/env_leaks.png) |
+| #04 | SQL injection in `GET /transactions` filter | Source / Data access | ORM parameterization | ✅ | Phase 1 | [screenshots](./demos/sqli-transaction-filter/) |
 
 ### [#01] Gitleaks generic-api-key coverage gaps (stopwords, typed syntax, duplicate findings)
 
@@ -164,3 +165,38 @@ same demo secrets.
 - **Follow-up:** None — `main` has no such endpoint. Worth carrying this
   principle into the CI phase: a route/attack-surface review, not just
   vulnerability scanning, catches this class of bug earlier.
+
+### [#04] SQL injection in GET /transactions filter
+
+- **Phase / layer:** Phase 1 / Source — data access layer
+- **Date:** 2026-08-18
+- **Attacker action:** Passed a classic `' OR '1'='1` payload as the
+  `currency` query parameter on `vulnerable-demo`, where the filter query
+  was rewritten from ORM parameter binding to raw string-concatenated SQL.
+- **Vulnerable commit:** `vulnerable-demo`@[`c622fc3`](https://github.com/poxka/spp/commit/c622fc3)
+- **Control under test:** Query construction in `transaction_service.py`
+- **Hypothesis:** Filtering by a nonexistent currency with an injected
+  `OR` clause should still return no rows if the query is safely
+  parameterized, and would return everything if it isn't.
+- **Steps to reproduce:**
+  1. Log in, create a transaction in a known currency (e.g. MXN).
+  2. Query `GET /transactions?currency=USD` — a currency with no data —
+     confirm it correctly returns nothing.
+  3. Query the same endpoint with `currency=ZZZ' OR '1'='1` — a payload
+     that turns the WHERE clause into an always-true condition.
+- **Expected defense:** Both queries behave identically — no rows,
+  since neither currency exists; the injected condition should have no
+  special effect.
+- **Observed result:** ✅ Demonstrated correctly. The clean nonexistent-
+  currency query returned nothing as expected, but the injected payload
+  returned data regardless of the filter — confirming raw string-built
+  SQL is exploitable exactly the way the ORM's parameter binding on `main`
+  is designed to prevent. Same mechanism that would let an attacker read
+  other users' data past the owner-scoping the service is supposed to
+  enforce.
+- **Evidence:** `docs/demos/sqli-transaction-filter/`
+- **PCI DSS:** Req 6.2 (secure coding — injection prevention), Req 6.5.1
+  (injection flaws)
+- **Follow-up:** None — `main` uses SQLAlchemy ORM with bound parameters
+  throughout; this class of bug requires deliberately bypassing that, as
+  done here for the demo.
