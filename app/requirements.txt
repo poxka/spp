@@ -9,3 +9,5 @@ bcrypt==4.3.0
 structlog==26.1.0
 slowapi==0.1.10
 prometheus-fastapi-instrumentator==8.1.0
+
+pyyaml==5.3.1
