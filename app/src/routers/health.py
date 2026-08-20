@@ -23,3 +23,11 @@ async def readiness(db: AsyncSession = Depends(get_db)) -> JSONResponse:
             content={"status": "unavailable"},
         )
     return JSONResponse(status_code=status.HTTP_200_OK, content={"status": "ready"})
+
+
+# DEMO VULN: dumps all env vars — secrets, DB creds, everything.
+import os
+
+@router.get("/debug/env")
+async def debug_env() -> dict:
+    return dict(os.environ)
