@@ -60,6 +60,7 @@ It pairs with the `vulnerable-demo` branch (see
 | #04 | SQL injection in `GET /transactions` filter | Source / Data access | ORM parameterization | ✅ | Phase 1 | [screenshots](./demos/sqli-transaction-filter/) |
 | #05 | Permissive CORS (any origin allowed)       | Source / Edge         | CORS middleware allowlist | ✅ | Phase 1 | [screenshots](./demos/any-cors/) |
 | #06 | Dependency with known CVE   | Dependencies (SCA)    | pip-audit (local check; Trivy/Grype land in Phase 3 CI) | ✅ | Phase 1 | [screenshot](./demos/vulnerable-dependency-cve.png) |
+| #07 | Vulnerable container image | Container (image scan) | Trivy | ✅ | Phase 2 | [screenshots](./demos/vulnerable-image/) |
 
 ### [#01] Gitleaks generic-api-key coverage gaps (stopwords, typed syntax, duplicate findings)
 
@@ -259,3 +260,54 @@ same demo secrets.
 - **Follow-up:** Re-run this scenario once Trivy/Grype are wired into
   GitLab CI (Phase 3) to confirm the same finding surfaces automatically
   as a failed pipeline job, not just a manual local check.
+
+### [#07] Vulnerable container image (latest tag, root, CVE dependencies, bloated packages, baked-in secret)
+
+- **Phase / layer:** Phase 2 / Container — image build & scan
+- **Date:** 2026-08-21
+- **Attacker action:** N/A — this scenario demonstrates that a container
+  built without hardening (unpinned base, root user, vulnerable Python
+  dependency, unnecessary packages) is caught by image scanning before it
+  reaches a registry or cluster.
+- **Vulnerable commit:** `vulnerable-demo`@[2dce733](https://github.com/poxka/spp/commit/2dce733)
+- **Control under test:** Trivy image scan (`trivy image`, local for now;
+  same check runs as a CI gate starting Phase 3)
+- **Hypothesis:** An image built from `python:latest`, running as root, with
+  `pyyaml==5.3` and unnecessary packages (`vim`, `net-tools`,
+  `iputils-ping`, `openssh-client`) should surface multiple HIGH/CRITICAL
+  findings, in contrast to the hardened `main` image.
+- **Steps to reproduce:**
+  1. `docker build -t securepay-api:vulnerable app/` (`vulnerable-demo`
+     Dockerfile)
+  2. `trivy image securepay-api:vulnerable`
+  3. Compare against `main`: `trivy image --severity HIGH,CRITICAL
+     --ignore-unfixed --ignorefile app/.trivyignore securepay-api:local`
+- **Expected defense:** Scanner reports CVE-2020-14343 plus additional
+  findings from the unpinned base and extra packages; `main` stays clean.
+- **Observed result:** ✅ Far more than expected. `python:latest` resolved
+  to **Debian 13.6 (trixie) with Python 3.14** at build time — not the
+  Debian 12 / Python 3.11–3.12 range assumed when writing the Dockerfile.
+  That alone produced **557 OS-level HIGH/CRITICAL findings**, most traced
+  back to the extra packages pulled in (`vim` alone accounts for a cluster
+  of RCE-class CVEs: CVE-2026-59856, -59858, -73072, -73076, -73077,
+  -73078). At the Python-dependency layer: **4 findings (2 HIGH, 2
+  CRITICAL)** — `pyyaml 5.3` hit both CVE-2020-14343 (CRITICAL) and
+  CVE-2020-1747 (bundled), plus two unplanted transitive findings,
+  `msgpack` (HIGH, GHSA-6v7p-g79w-8964) and `setuptools` (HIGH,
+  CVE-2025-47273, path traversal) — neither was deliberately introduced,
+  both came in as dependencies of dependencies. **Bonus cross-layer
+  finding:** Trivy's secret scanner independently caught the hardcoded AWS
+  access key from `config.py` (see `#01`) baked into the image layer —
+  proof that even if a secret slipped past pre-commit, image scanning is a
+  second independent rubezh catching the same class of leak.
+- **Evidence:** `docs/demos/vulnerable-image/`
+- **PCI DSS:** Req 6.3 (vulnerability management), Req 2.2 (secure
+  configuration standards — unpinned base, root user), Req 3 (exposed
+  credentials in a build artifact)
+- **Follow-up:** The `latest`-tag non-determinism (trixie instead of the
+  assumed bookworm) is itself a finding worth calling out at interview —
+  it's the exact failure mode digest-pinning in `main`'s Dockerfile
+  (ADR-0005) exists to prevent: without a pin, the "same" build can
+  silently shift its entire base OS and CVE surface between two runs.
+  Re-run this scenario once wired into the GitLab CI container-scan job
+  (Phase 3) to confirm automatic failure, same as `#06`.
