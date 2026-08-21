@@ -292,9 +292,9 @@ Every control in this project is traced to the PCI DSS requirement it helps sati
   - [x] `vulnerable-demo` branch with planted vulnerabilities (separate commits)
   - [x] docker-compose (API + PostgreSQL)
   - [x] STRIDE threat model (draft)
-- [ ] **Phase 2 — Secure containerization**
-  - [ ] Multi-stage Dockerfile: non-root, read-only FS, pinned base digest
-  - [ ] Local Trivy image scan
+- [x] **Phase 2 — Secure containerization**
+  - [x] Multi-stage Dockerfile: non-root, read-only FS, pinned base digest
+  - [x] Local Trivy image scan
 - [ ] **Phase 3 — CI security pipeline (shift-left gates)**
   - [ ] GitLab pipeline: secret scan → SAST → SCA → container scan
   - [ ] Fail-closed gates with tuned severity thresholds
