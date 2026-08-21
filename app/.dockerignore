@@ -1,15 +1,42 @@
+# VCS
 .git
 .gitignore
-.venv
-venv
-__pycache__
-*.pyc
-*.pyo
-.pytest_cache
+.gitattributes
+
+# Python caches / build artefacts
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets / env
 .env
 .env.*
-tests
-docs
+*.pem
+*.key
+
+# Tests & docs
+tests/
+docs/
 *.md
+
+# Build / CI / tooling
 Dockerfile
 docker-compose.yml
+.dockerignore
+.pre-commit-config.yaml
+.hadolint.yaml
+.gitlab-ci.yml
+.github/
+
+# Editor / OS cruft
+.idea/
+.vscode/
+.DS_Store

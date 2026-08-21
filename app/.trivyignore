@@ -1,0 +1,13 @@
+# Base-image (distroless debian12) OS package CVEs with an upstream fix that has not
+# yet propagated to the distroless rebuild as of the date below. None of these are in
+# our application code or Python dependencies (those scan clean). Re-check on every
+# digest bump; drop an entry as soon as the fixed package version is present.
+#
+# Review by: 2026-09-04 (2 weeks out) — re-resolve digest, re-scan, prune stale entries.
+
+CVE-2026-40355 # libgssapi-krb5-2 / libk5crypto3 / libkrb5-3 / libkrb5support0 — krb5 DoS, fix pending in distroless rebuild
+CVE-2026-40356 # same packages — krb5 DoS, fix pending in distroless rebuild
+CVE-2025-13836 # libpython3.11-minimal / libpython3.11-stdlib / python3.11-minimal — cpython DoS, fix pending
+CVE-2026-4224  # same packages — cpython DoS, fix pending
+CVE-2026-6100  # same packages — cpython RCE/info-disclosure, fix pending
+CVE-2026-45447 # libssl3 — openssl use-after-free, fix pending
