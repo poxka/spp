@@ -111,7 +111,7 @@ semgrep:
   script:
     - semgrep scan --config=p/python --config=p/security-audit
         --config=p/owasp-top-ten --config=p/jwt
-        --sarif --output=semgrep.sarif --exit-code=0 $APP_DIR
+        --sarif --output=semgrep.sarif $APP_DIR
     - semgrep scan --config=p/python --config=p/security-audit
         --config=p/owasp-top-ten --config=p/jwt
         --severity=ERROR --error $APP_DIR

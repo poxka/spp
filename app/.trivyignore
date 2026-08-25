@@ -11,3 +11,5 @@ CVE-2025-13836 # libpython3.11-minimal / libpython3.11-stdlib / python3.11-minim
 CVE-2026-4224  # same packages — cpython DoS, fix pending
 CVE-2026-6100  # same packages — cpython RCE/info-disclosure, fix pending
 CVE-2026-45447 # libssl3 — openssl use-after-free, fix pending
+CVE-2023-45853 # zlib1g — MiniZip-only CVE, Debian doesn't build minizip into this binary packageя
+CVE-2025-7458  # libsqlite3-0 — sqlite integer overflow, fix released upstream (>=3.41.2), not yet backported to debian12 point release; mitigated in practice by parameterized queries

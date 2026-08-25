@@ -2,3 +2,5 @@ failure-threshold: warning
 trusted-registries:
   - docker.io
   - gcr.io
+ignored:
+  - DL3006

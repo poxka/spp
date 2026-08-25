@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from sqlalchemy import select
 
-import src.models
+import src.models # noqa: F401
 from src.config import settings
 from src.database import Base, SessionLocal, engine
 from src.logging_config import configure_logging, get_logger
