@@ -1,0 +1,208 @@
+stages:
+  - lint
+  - secret-scan
+  - sast
+  - sca
+  - build
+  - container-scan
+
+variables:
+  APP_DIR: app
+  IMAGE: $CI_REGISTRY_IMAGE/payment-api
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+  HADOLINT_VERSION: "2.12.0"
+  RUFF_VERSION: "0.8.4"
+  SEMGREP_VERSION: "1.97.0"
+  TRIVY_VERSION: "0.58.1"
+  GITLEAKS_VERSION: "8.24.2"
+  TRUFFLEHOG_VERSION: "3.86.1"
+  KANIKO_VERSION: "v1.23.2"
+  SAST_EXCLUDED_ANALYZERS: "kics"
+
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "vulnerable-demo"'
+    - if: '$CI_COMMIT_TAG'
+
+.security_rules: &security_rules
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  - if: '$CI_COMMIT_BRANCH == "main"'
+  - if: '$CI_COMMIT_BRANCH == "vulnerable-demo"'
+
+.trivy_db_cache: &trivy_db_cache
+  key: trivy-db
+  paths:
+    - .trivycache/
+  policy: pull-push
+
+default:
+  interruptible: true
+
+# ----------------------------------------------------------------------------
+# lint
+# ----------------------------------------------------------------------------
+
+hadolint:
+  stage: lint
+  image: hadolint/hadolint:v${HADOLINT_VERSION}-alpine
+  needs: []
+  rules: *security_rules
+  script:
+    - hadolint --config .hadolint.yaml $APP_DIR/Dockerfile
+
+ruff:
+  stage: lint
+  image: python:3.12-slim
+  needs: []
+  rules: *security_rules
+  before_script:
+    - pip install --no-cache-dir ruff==${RUFF_VERSION}
+  script:
+    - ruff check $APP_DIR
+    - ruff format --check $APP_DIR
+
+# ----------------------------------------------------------------------------
+# secret-scan
+# ----------------------------------------------------------------------------
+
+gitleaks:
+  stage: secret-scan
+  image:
+    name: zricethezav/gitleaks:v${GITLEAKS_VERSION}
+    entrypoint: [""]
+  needs: []
+  rules: *security_rules
+  script:
+    - gitleaks detect --source . --redact -v --exit-code 1
+        --report-format sarif --report-path gitleaks.sarif
+  artifacts:
+    when: always
+    paths:
+      - gitleaks.sarif
+    expire_in: 1 week
+
+trufflehog:
+  stage: secret-scan
+  image:
+    name: trufflesecurity/trufflehog:${TRUFFLEHOG_VERSION}
+    entrypoint: [""]
+  needs: []
+  rules: *security_rules
+  script:
+    - trufflehog filesystem "$APP_DIR" --fail --json > trufflehog.json || (cat trufflehog.json; exit 1)
+  artifacts:
+    when: always
+    paths:
+      - trufflehog.json
+    expire_in: 1 week
+
+# ----------------------------------------------------------------------------
+# sast
+# ----------------------------------------------------------------------------
+
+semgrep:
+  stage: sast
+  image: semgrep/semgrep:${SEMGREP_VERSION}
+  needs: []
+  rules: *security_rules
+  script:
+    - semgrep scan --config=p/python --config=p/security-audit
+        --config=p/owasp-top-ten --config=p/jwt
+        --sarif --output=semgrep.sarif --exit-code=0 $APP_DIR
+    - semgrep scan --config=p/python --config=p/security-audit
+        --config=p/owasp-top-ten --config=p/jwt
+        --severity=ERROR --error $APP_DIR
+  artifacts:
+    when: always
+    paths:
+      - semgrep.sarif
+    expire_in: 1 week
+
+semgrep-sast:
+  stage: sast
+  needs: []
+  rules: *security_rules
+
+# ----------------------------------------------------------------------------
+# sca
+# ----------------------------------------------------------------------------
+
+trivy-fs:
+  stage: sca
+  image:
+    name: aquasec/trivy:${TRIVY_VERSION}
+    entrypoint: [""]
+  needs: []
+  rules: *security_rules
+  cache: *trivy_db_cache
+  script:
+    - trivy fs --scanners vuln --ignorefile $APP_DIR/.trivyignore
+        --format table --exit-code 0 $APP_DIR
+    - trivy fs --scanners vuln --ignorefile $APP_DIR/.trivyignore
+        --format sarif --output trivy-fs.sarif --exit-code 0 $APP_DIR
+    - trivy fs --scanners vuln --ignorefile $APP_DIR/.trivyignore
+        --severity CRITICAL --exit-code 1 $APP_DIR
+  artifacts:
+    when: always
+    paths:
+      - trivy-fs.sarif
+    expire_in: 1 week
+
+# ----------------------------------------------------------------------------
+# build
+# ----------------------------------------------------------------------------
+
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:${KANIKO_VERSION}-debug
+    entrypoint: [""]
+  needs: []
+  rules: *security_rules
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}/${APP_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/${APP_DIR}/Dockerfile"
+      --target runtime
+      --destination "${IMAGE}:${IMAGE_TAG}"
+      --destination "${IMAGE}:${CI_COMMIT_REF_SLUG}"
+      --no-push-cache
+
+# ----------------------------------------------------------------------------
+# container-scan
+# ----------------------------------------------------------------------------
+
+trivy-image:
+  stage: container-scan
+  image:
+    name: aquasec/trivy:${TRIVY_VERSION}
+    entrypoint: [""]
+  needs:
+    - build
+  rules: *security_rules
+  cache: *trivy_db_cache
+  variables:
+    TRIVY_USERNAME: $CI_REGISTRY_USER
+    TRIVY_PASSWORD: $CI_REGISTRY_PASSWORD
+  script:
+    - trivy image --ignorefile $APP_DIR/.trivyignore
+        --format table --exit-code 0 "${IMAGE}:${IMAGE_TAG}"
+    - trivy image --ignorefile $APP_DIR/.trivyignore
+        --format sarif --output trivy-image.sarif --exit-code 0 "${IMAGE}:${IMAGE_TAG}"
+    - trivy image --ignorefile $APP_DIR/.trivyignore
+        --severity CRITICAL --exit-code 1 "${IMAGE}:${IMAGE_TAG}"
+  artifacts:
+    when: always
+    paths:
+      - trivy-image.sarif
+    expire_in: 1 week
