@@ -17,10 +17,6 @@ variables:
   GITLEAKS_VERSION: "8.24.2"
   TRUFFLEHOG_VERSION: "3.86.1"
   KANIKO_VERSION: "v1.23.2"
-  SAST_EXCLUDED_ANALYZERS: "kics"
-
-include:
-  - template: Jobs/SAST.gitlab-ci.yml
 
 workflow:
   rules:
@@ -124,11 +120,6 @@ semgrep:
     paths:
       - semgrep.sarif
     expire_in: 1 week
-
-semgrep-sast:
-  stage: sast
-  needs: []
-  rules: *security_rules
 
 # ----------------------------------------------------------------------------
 # sca
