@@ -21,9 +21,7 @@ class TransactionCreate(BaseModel):
     def _validate_currency(cls, value: str) -> str:
         normalized = value.strip().upper()
         if normalized not in ALLOWED_CURRENCIES:
-            raise ValueError(
-                f"currency must be one of {sorted(ALLOWED_CURRENCIES)}"
-            )
+            raise ValueError(f"currency must be one of {sorted(ALLOWED_CURRENCIES)}")
         return normalized
 
 
@@ -58,7 +56,5 @@ class TransactionFilter(BaseModel):
 
         normalized = value.strip().upper()
         if normalized not in ALLOWED_CURRENCIES:
-            raise ValueError(
-                f"currency must be one of {sorted(ALLOWED_CURRENCIES)}"
-            )
+            raise ValueError(f"currency must be one of {sorted(ALLOWED_CURRENCIES)}")
         return normalized

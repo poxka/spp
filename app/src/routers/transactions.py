@@ -19,7 +19,9 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 logger = get_logger("transactions")
 
 
-@router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_transaction(
     payload: TransactionCreate,
     db: AsyncSession = Depends(get_db),

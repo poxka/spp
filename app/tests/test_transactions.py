@@ -51,9 +51,7 @@ async def test_create_rejects_bad_card_token(client, auth_headers):
 
 
 async def test_get_missing_transaction_returns_404(client, auth_headers):
-    response = await client.get(
-        f"/transactions/{uuid.uuid4()}", headers=auth_headers
-    )
+    response = await client.get(f"/transactions/{uuid.uuid4()}", headers=auth_headers)
     assert response.status_code == 404
 
 
