@@ -61,6 +61,11 @@ It pairs with the `vulnerable-demo` branch (see
 | #05 | Permissive CORS (any origin allowed)       | Source / Edge         | CORS middleware allowlist | ✅ | Phase 1 | [screenshots](./demos/any-cors/) |
 | #06 | Dependency with known CVE   | Dependencies (SCA)    | pip-audit (local check; Trivy/Grype land in Phase 3 CI) | ✅ | Phase 1 | [screenshot](./demos/vulnerable-dependency-cve.png) |
 | #07 | Vulnerable container image | Container (image scan) | Trivy | ✅ | Phase 2 | [screenshots](./demos/vulnerable-image/) |
+| #08 | Unpatched CRITICAL CVEs in runtime base image (real, unplanned) | Dependencies / Image (CI) | Trivy image scan (Phase 3 CI) | ✅ | Phase 3 | [screenshot](./demos/trivy-critical-catch.png) |
+| #09 | Gitleaks/TruffleHog CI-layer secret detection            | Source (CI)            | Gitleaks + TruffleHog (GitLab CI) | ⏳ | Phase 3 | — |
+| #10 | Semgrep SAST CI-layer catch                                | Source (CI)             | Semgrep (GitLab CI)       | ⏳ | Phase 3 | — |
+| #11 | Trivy SCA CI-layer catch                                   | Dependencies (CI)        | Trivy fs (GitLab CI)      | ⏳ | Phase 3 | — |
+| #12 | Trivy container-scan CI-layer catch                       | Image (CI)               | Trivy image (GitLab CI)   | ⏳ | Phase 3 | — |
 
 ### [#01] Gitleaks generic-api-key coverage gaps (stopwords, typed syntax, duplicate findings)
 
@@ -311,3 +316,67 @@ same demo secrets.
   silently shift its entire base OS and CVE surface between two runs.
   Re-run this scenario once wired into the GitLab CI container-scan job
   (Phase 3) to confirm automatic failure, same as `#06`.
+
+### [#08] Unpatched CRITICAL CVEs surfaced in the runtime base image (real, unplanned)
+
+- **Phase / layer:** Phase 3 / Dependencies & Image — container scan
+- **Date:** 2026-08-26
+- **Attacker action:** N/A — this wasn't a planted `vulnerable-demo`
+  scenario. It's a real finding the `trivy-image` CI job produced against
+  `main` while the Phase 3 pipeline was still being wired up, before any
+  vulnerable-demo work touched this stage.
+- **Vulnerable commit:** `main`@[5d11e80c](https://github.com/poxka/spp/commit/5d11e80c)
+- **Control under test:** `trivy image` in the `container-scan` stage,
+  CRITICAL-only gate (`--severity CRITICAL --exit-code 1`)
+- **Hypothesis:** The pinned, digest-locked distroless runtime image
+  should be clean of CRITICAL CVEs, since Phase 2's `.trivyignore`
+  (see `#07`) was written and reviewed against the same base image.
+- **Steps to reproduce:**
+  1. Push a commit to `main` and let the GitLab CI `container-scan` stage
+     run against the built runtime image.
+- **Expected defense:** Job passes if the image has no CRITICAL findings
+  not already covered by `.trivyignore`.
+- **Observed result:** ✅ Missed then caught.The gate correctly failed
+  with two CRITICAL findings not covered by the existing `.trivyignore`:
+  - `CVE-2025-7458` (`libsqlite3-0`, installed `3.40.1-2+deb12u2`) — a
+    real, still-unpatched integer overflow in SQLite's
+    `sqlite3KeyInfoFromExprList`. Upstream fixed it in SQLite ≥3.41.2;
+    Debian's bookworm point release hadn't backported the fix yet at
+    scan time. Exploitation requires the ability to already execute
+    arbitrary SQL — with SQLAlchemy's parameterized queries on `main`,
+    there's no direct injection path to this, but the CVE itself
+    remains open at the OS-package level.
+  - `CVE-2023-45853` (`zlib1g`) — a well-documented false positive.
+    The CVE only affects MiniZip code inside zlib's source tree; Debian
+    doesn't build MiniZip into the `zlib1g` binary package at all
+    (bookworm marks the CVE `<ignored>` upstream), so this package is
+    not actually affected despite matching on version.
+  Both were added to `.trivyignore` with justification and a review-by
+  date, following the same pattern as the Phase 2 entries — the SQLite
+  one flagged for re-check once Debian backports the patch, not
+  suppressed indefinitely.
+- **Evidence:** `docs/demos/trivy-critical-catch.png`
+- **PCI DSS:** Req 6.3 (vulnerability management), Req 6.3.2 (component
+  inventory / known-vulnerability tracking)
+- **Follow-up:** Re-check `CVE-2025-7458` against future distroless
+  digest bumps — drop the ignore entry as soon as Debian ships the
+  patched `libsqlite3-0` build.
+
+**Why this entry matters more than a planted one:** every other entry in
+this log is a deliberately staged scenario on `vulnerable-demo`. This one
+wasn't staged — it's the same class of control as `#07`
+(image-layer scanning) catching something real on `main` during its own
+CI construction, which is a stronger proof point than a scripted demo:
+the gate did its job before the project had even asked it to yet.
+
+### [#09]–[#12] Phase 3 CI-layer re-runs of the Phase 1/2 demo scenarios — planned
+
+Entries [#01]–[#07] above were demonstrated locally (pre-commit / manual
+tool runs) in Phase 1 and Phase 2, before the GitLab CI pipeline existed.
+Now that the pipeline is live, the natural next step is re-running the
+same class of planted vulnerability on `vulnerable-demo` and confirming
+each one is caught automatically at the CI layer — a failed pipeline
+job, not a manual check. These four entries are placeholders until that
+pass is done; fill in `Vulnerable commit`, `Observed result`, and
+`Evidence` (the failed job URL) once each is actually pushed through
+GitLab CI.
