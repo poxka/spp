@@ -7,7 +7,7 @@
 ![AWS](https://img.shields.io/badge/AWS-EKS-orange?logo=amazonaws)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-EKS-326CE5?logo=kubernetes&logoColor=white)
 ![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white)
-[![Pipeline Status](https://gitlab.com/<твой-gitlab-юзер>/securepay-platform/badges/main/pipeline.svg)](https://gitlab.com/poxka/spp/-/pipelines)
+[![Pipeline Status](https://gitlab.com/poxka/spp/badges/main/pipeline.svg)](https://gitlab.com/poxka/spp/-/pipelines)
 ![GitLab CI](https://img.shields.io/badge/CI%2FCD-GitLab-FC6D26?logo=gitlab&logoColor=white)
 ![Istio](https://img.shields.io/badge/Service%20Mesh-Istio-466BB0?logo=istio&logoColor=white)
 ![Vault](https://img.shields.io/badge/Secrets-Vault-000000?logo=vault&logoColor=white)
