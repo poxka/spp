@@ -62,10 +62,10 @@ It pairs with the `vulnerable-demo` branch (see
 | #06 | Dependency with known CVE   | Dependencies (SCA)    | pip-audit (local check; Trivy/Grype land in Phase 3 CI) | ✅ | Phase 1 | [screenshot](./demos/vulnerable-dependency-cve.png) |
 | #07 | Vulnerable container image | Container (image scan) | Trivy | ✅ | Phase 2 | [screenshots](./demos/vulnerable-image/) |
 | #08 | Unpatched CRITICAL CVEs in runtime base image (real, unplanned) | Dependencies / Image (CI) | Trivy image scan (Phase 3 CI) | ✅ | Phase 3 | [screenshot](./demos/trivy-critical-catch.png) |
-| #09 | Gitleaks/TruffleHog CI-layer secret detection            | Source (CI)            | Gitleaks + TruffleHog (GitLab CI) | ⏳ | Phase 3 | — |
-| #10 | Semgrep SAST CI-layer catch                                | Source (CI)             | Semgrep (GitLab CI)       | ⏳ | Phase 3 | — |
-| #11 | Trivy SCA CI-layer catch                                   | Dependencies (CI)        | Trivy fs (GitLab CI)      | ⏳ | Phase 3 | — |
-| #12 | Trivy container-scan CI-layer catch                       | Image (CI)               | Trivy image (GitLab CI)   | ⏳ | Phase 3 | — |
+| #09 | Gitleaks/TruffleHog CI-layer secret detection  | Source (CI)         | Gitleaks + TruffleHog (GitLab CI) | ✅ | Phase 3 | [screenshot](./demos/vulnerable-demo-ci-run/secret-scan.png) |
+| #10 | Semgrep SAST CI-layer catch | Source (CI)       | Semgrep (GitLab CI) | ✅ | Phase 3 | [screenshot](./demos/vulnerable-demo-ci-run/sast.png) |
+| #11 | Trivy SCA CI-layer catch | Dependencies (CI)    | Trivy fs (GitLab CI)      | ✅ | Phase 3 | [screenshot](./demos/vulnerable-demo-ci-run/sca.png) |
+| #12 | Trivy container-scan CI-layer catch | Image (CI) | Trivy image (GitLab CI) | ✅ | Phase 3 | [screenshot](./demos/vulnerable-demo-ci-run/container-scan.png) |
 
 ### [#01] Gitleaks generic-api-key coverage gaps (stopwords, typed syntax, duplicate findings)
 
@@ -369,14 +369,126 @@ wasn't staged — it's the same class of control as `#07`
 CI construction, which is a stronger proof point than a scripted demo:
 the gate did its job before the project had even asked it to yet.
 
-### [#09]–[#12] Phase 3 CI-layer re-runs of the Phase 1/2 demo scenarios — planned
+### [#09] Gitleaks/TruffleHog CI-layer secret detection
 
-Entries [#01]–[#07] above were demonstrated locally (pre-commit / manual
-tool runs) in Phase 1 and Phase 2, before the GitLab CI pipeline existed.
-Now that the pipeline is live, the natural next step is re-running the
-same class of planted vulnerability on `vulnerable-demo` and confirming
-each one is caught automatically at the CI layer — a failed pipeline
-job, not a manual check. These four entries are placeholders until that
-pass is done; fill in `Vulnerable commit`, `Observed result`, and
-`Evidence` (the failed job URL) once each is actually pushed through
-GitLab CI.
+- **Phase / layer:** Phase 3 / Source — secret detection
+- **Date:** 2026-09-27
+- **Attacker action:** Push code with hardcoded AWS credentials and a JWT
+  signing secret directly in source (`app/src/config.py`).
+- **Vulnerable commit:** `vulnerable-demo`@[e59dd1d](https://github.com/poxka/spp/commit/e59dd1d)
+- **Control under test:** `gitleaks` and `trufflehog` jobs in the
+  `secret-scan` stage, both fail-closed on any finding
+- **Hypothesis:** A secret committed to the vulnerable-demo branch
+  should be caught automatically the moment CI runs against it, without
+  needing a local pre-commit hook.
+- **Steps to reproduce:**
+  1. Push `vulnerable-demo` (containing commit `e59dd1d`) to GitLab.
+  2. Observe the `secret-scan` stage.
+- **Expected defense:** Both jobs fail with a redacted finding pointing
+  at the exact file/line.
+- **Observed result:** ✅ Caught by both scanners independently:
+  - Gitleaks: `aws-access-token` rule at `app/src/config.py:41`, plus a
+    `python-typed-secret-assignment` match on the JWT secret at line 43.
+  - TruffleHog: same AWS key, flagged `unverified`.
+- **Evidence:** `docs/demos/vulnerable-demo-ci-run/secret-scan.png`
+- **PCI DSS:** Req 6.2, 6.3 (secure SDLC), Req 8 (credential management)
+- **Follow-up:** none — this control is fully proven end-to-end.
+
+### [#10] Semgrep SAST CI-layer catch (JWT bypass, SQL injection, and root Dockerfile)
+
+- **Phase / layer:** Phase 3 / Source — SAST
+- **Date:** 2026-08-27
+- **Attacker action:** Disable JWT signature verification, allow the
+  `none` algorithm, build a raw SQL query with `sqlalchemy.text()`
+  instead of parameterized ORM calls, and ship a Dockerfile with no
+  `USER` instruction.
+- **Vulnerable commit:** `vulnerable-demo`@[09569dc8](https://github.com/poxka/spp/commit/09569dc8)
+- **Control under test:** `semgrep` job in the `sast` stage, gated on
+  `--severity=ERROR`
+- **Hypothesis:** Ruleset `p/security-audit` + `p/jwt` should flag both
+  the JWT and SQL injection classes of vulnerability without any
+  custom rules.
+- **Steps to reproduce:**
+  1. Push `vulnerable-demo` to GitLab.
+  2. Observe the `semgrep` job.
+- **Expected defense:** Job fails with findings for each planted issue.
+- **Observed result:** ✅ 4 findings, all correctly classified:
+  - `python.jwt.security.jwt-none-alg` — `none` algorithm allowed
+  - `python.jwt.security.unverified-jwt-decode` — signature verification
+    disabled
+  - `python.sqlalchemy.security.audit.avoid-sqlalchemy-text` — raw SQL
+    injection surface via `text(query)`
+  - `dockerfile.security.missing-user.missing-user` — no non-root `USER`
+- **Evidence:** `docs/demos/vulnerable-demo-ci-run/sast.png`
+- **PCI DSS:** Req 6.2, 6.3 (secure coding — injection, auth bypass),
+  Req 8 (authentication)
+- **Follow-up:** none — control fully proven end-to-end.
+
+### [#11] Trivy SCA CI-layer catch (Known-CVE dependency, dependency scan)
+
+- **Phase / layer:** Phase 3 / Dependencies — SCA
+- **Date:** 2026-08-27
+- **Attacker action:** Pin `pyyaml==5.3.1`, a version with a known
+  incomplete-fix CVE, as a direct dependency.
+- **Vulnerable commit:** `vulnerable-demo`@[09569dc8](https://github.com/poxka/spp/commit/09569dc8)
+- **Control under test:** `trivy-fs` job in the `sca` stage, gated on
+  `--severity CRITICAL`
+- **Hypothesis:** Trivy's filesystem scanner should flag the pinned
+  version against its vulnerability DB from `requirements.txt` alone,
+  before any image is even built.
+- **Steps to reproduce:**
+  1. Push `vulnerable-demo` to GitLab.
+  2. Observe the `trivy-fs` job.
+- **Expected defense:** Job fails, CRITICAL finding on `pyyaml`.
+- **Observed result:** ✅ `CVE-2020-14343` (CRITICAL) flagged directly
+  against `requirements.txt`, installed version `5.3.1`, fixed version
+  `5.4`.
+- **Evidence:** `docs/demos/vulnerable-demo-ci-run/sca.png`
+- **PCI DSS:** Req 6.3 (vulnerability management)
+- **Follow-up:** none — control fully proven end-to-end. Note for
+  `#12`: the image-layer scan against the same dependency surfaced a
+  second, related CVE that the filesystem scan didn't — see below.
+
+### [#12] Trivy container-scan CI-layer catch (Known-CVE dependency and hardcoded secret, container scan)
+
+- **Phase / layer:** Phase 3 / Image — container scan
+- **Date:** 2026-09-01
+- **Attacker action:** Same as `#09` and `#11`, now observed against the
+  actually built container image rather than source or dependency
+  manifest.
+- **Vulnerable commit:** `vulnerable-demo`@[985a2158](https://github.com/poxka/spp/commit/985a2158)
+- **Control under test:** `trivy-image` job in the `container-scan`
+  stage, gated on `--severity CRITICAL`
+- **Hypothesis:** Scanning the built image should independently confirm
+  both the dependency CVE and the hardcoded secret, this time at the
+  image-layer level rather than the source/manifest level — proving the
+  same class of vulnerability gets caught redundantly at multiple
+  points in the pipeline, not just once.
+- **Steps to reproduce:**
+  1. Push `vulnerable-demo` to GitLab, let `build` produce an image.
+  2. Observe the `trivy-image` job.
+- **Expected defense:** Job fails with CRITICAL findings on both the
+  dependency and the embedded secret.
+- **Observed result:** ✅ Caught, with a bonus finding the filesystem
+  scan didn't surface:
+  - `PyYAML` CRITICAL — `CVE-2020-14343` (same as `#11`) **and**
+    `CVE-2020-1747` (arbitrary command execution via
+    `python/object/new` when `FullLoader` is used) — the image-layer
+    scan resolved a second, related CVE against the installed package
+    metadata that the requirements-file scan alone didn't surface.
+  - Secret scanning caught the same AWS access key from `#09`, this
+    time flagged directly against the image layer added by
+    `COPY src ./src` in `/app/src/config.py` — independent confirmation
+    that the secret is live in the shipped artifact, not just in git
+    history.
+  - A large tail of OS-package CRITICALs from the unpinned `python:latest`
+    base image.
+- **Evidence:** `docs/demos/vulnerable-demo-ci-run/container-scan.png`
+- **PCI DSS:** Req 6.3 (vulnerability management), Req 2 (secure
+  configuration — unhardened base image), Req 8 (credential exposure)
+- **Follow-up:** none — this closes out the full set of Phase 3 CI-layer
+  demo scenarios. Worth noting in the interview: `#11` and `#12` together
+  demonstrate that dependency scanning at the manifest level and at the
+  image level aren't fully redundant — the image scan found a CVE the
+  filesystem scan missed, which is itself a small argument for running
+  both layers rather than treating one as a superset of the other.
