@@ -54,16 +54,9 @@ class TransactionFilter(BaseModel):
     #     if value is None:
     #         return None
 
-<<<<<<< HEAD
-        normalized = value.strip().upper()
-        if normalized not in ALLOWED_CURRENCIES:
-            raise ValueError(f"currency must be one of {sorted(ALLOWED_CURRENCIES)}")
-        return normalized
-=======
     #     normalized = value.strip().upper()
     #     if normalized not in ALLOWED_CURRENCIES:
     #         raise ValueError(
     #             f"currency must be one of {sorted(ALLOWED_CURRENCIES)}"
     #         )
     #     return normalized
->>>>>>> c622fc3 (demo: introduce SQL injection in GET /transactions)
