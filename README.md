@@ -296,10 +296,10 @@ Every control in this project is traced to the PCI DSS requirement it helps sati
 - [x] **Phase 2 — Secure containerization**
   - [x] Multi-stage Dockerfile: non-root, read-only FS, pinned base digest
   - [x] Local Trivy image scan
-- [ ] **Phase 3 — CI security pipeline (shift-left gates)**
+- [x] **Phase 3 — CI security pipeline (shift-left gates)**
   - [x] GitLab pipeline: secret scan → SAST → SCA → container scan
   - [x] Fail-closed gates with tuned severity thresholds
-  - [ ] First attack-scenario screencasts (secret, SQLi, CVE, image)
+  - [x] First attack-scenario screencasts (secret, SQLi, CVE, image)
 - [ ] **Phase 4 — IaC & AWS foundation**
   - [ ] AWS Budgets + billing alerts
   - [ ] Terraform backend (S3 + DynamoDB lock, KMS-encrypted)
