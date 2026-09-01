@@ -156,7 +156,16 @@ build:
     name: gcr.io/kaniko-project/executor:${KANIKO_VERSION}-debug
     entrypoint: [""]
   needs: []
-  rules: *security_rules
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      variables:
+        KANIKO_TARGET_FLAG: "--target runtime"
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      variables:
+        KANIKO_TARGET_FLAG: "--target runtime"
+    - if: '$CI_COMMIT_BRANCH == "vulnerable-demo"'
+      variables:
+        KANIKO_TARGET_FLAG: ""
   script:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
@@ -164,7 +173,7 @@ build:
       /kaniko/executor
       --context "${CI_PROJECT_DIR}/${APP_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/${APP_DIR}/Dockerfile"
-      --target runtime
+      ${KANIKO_TARGET_FLAG}
       --destination "${IMAGE}:${IMAGE_TAG}"
       --destination "${IMAGE}:${CI_COMMIT_REF_SLUG}"
       --no-push-cache
