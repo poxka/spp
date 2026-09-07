@@ -1,23 +1,44 @@
-# `infra/` — Infrastructure as Code (Terraform)
+# Terraform — SecurePay Platform Infra
 
-All AWS infrastructure as code. Nothing gets clicked in the console and left
-undocumented — if it exists in AWS, it exists here (charter principle #5).
+Terraform code for SecurePay Platform AWS infrastructure.
+
+## AWS bootstrap (manual, one-time)
+
+Everything below was done by hand through the AWS Console/CLI and is
+intentionally not automated with Terraform: the root account, MFA,
+and billing controls need to exist before the first apply, not be a
+result of running it.
+
+1. AWS account created, root protected by MFA, no root access keys
+   exist.
+2. Region `mx-central-1` (Mexico Central, Querétaro) enabled under
+   Account -> AWS Regions.
+3. AWS Budgets configured: zero-spend budget + cost budget with
+   $10 / $30 thresholds, email notifications. Set up before the first
+   `terraform apply`.
+4. IAM user `terraform-admin` created (not root), temporarily granted
+   `AdministratorAccess` — narrowed down to least privilege by the
+   `iam` module.
+5. AWS CLI configured locally under a named profile.
+
+```bash
+aws configure --profile securepay
+aws sts get-caller-identity --profile securepay
+```
+
+All `terraform` / `aws` commands in this project run with
+`AWS_PROFILE=securepay`, never through the default profile.
 
 ## Layout
 
-- `terraform/modules/` — reusable modules: `vpc`, `eks`, `iam`, `kms`, `rds`
-- `terraform/envs/dev/` — the dev environment (apply → work → **destroy**)
+Fills in as Phase 4 progresses.
 
-## Discipline
+```infra/terraform/
+├── modules/          # vpc, iam, kms, rds
+└── envs/
+    └── dev/          # backend, providers, dev.tfvars
+```
 
-- **Billing first.** AWS Budgets + billing alerts ($10 / $30) go in *before* any
-  EKS/NAT is applied (charter money-rule #1).
-- **Cost-in-bursts.** `terraform apply` → validate/record demo → `terraform
-  destroy`. NAT Gateway and AWS Config tick even while idle — kill them with the
-  cluster.
-- **State is sensitive.** Remote backend: S3 (versioned, KMS-encrypted, public
-  access blocked) + DynamoDB lock. The provider lock file
-  (`.terraform.lock.hcl`) **is** committed for reproducible `init`.
-- IaC scanning (Checkov, tfsec) runs in pre-commit and CI from Phase 4.
+## Regions
 
-> Status: scaffolded in Phase 0. Implementation lands in Phase 4.
+Primary region is `mx-central-1`.
